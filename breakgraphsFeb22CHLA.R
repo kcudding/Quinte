@@ -1,4 +1,5 @@
 ##########BREAKPOINT
+
 rm(list=ls())
 #read in data supplied by DFO, rename and aggregate into annuual means
 library(openxlsx)
@@ -99,7 +100,7 @@ mpred=as.data.frame(predict(tp5, spydat, interval="confidence"))
 spydat=cbind(spydat, mpred)
 
 #spydat$tres=spydat$TP-spydat$tmodel
-par(mfrow=c(3,1), mar=c(0,4,0,3), oma=c(5,5,2,2),
+par(mfrow=c(3,1), mar=c(1,4,0,3), oma=c(5,5,2,2),
     cex.axis=1, cex.lab=1.75, cex.main=1.2, cex.sub=1)
 for (i in 1:length(stvec)) {
   pdat=spydat[spydat$Station_Acronym==stvec[i],]
@@ -125,7 +126,18 @@ lines(pdat$lwr~pdat$year, col = "pink", lwd=2, lty=2)
 lines(pdat$upr~pdat$year, col = "pink", lwd=2, lty=2)
 }
 
-par(mfrow=c(3,1), mar=c(0,4,0,3), oma=c(5,5,2,2),
+
+tiff('baseR_figure.tiff', width =85, 
+     height = 180, pointsize = 12,
+     units = 'mm', res = 300)
+
+jpeg('baseR_figure.jpeg', width =85, 
+     height = 180,
+     units = 'mm', pointsize = 12,
+     quality = 75,
+     res = 300)
+
+par(mfrow=c(3,1), mar=c(0.5,3,1,1), oma=c(4,3,0,0),
     cex.axis=1.2, cex.lab=1.75, cex.main=1.2, cex.sub=1)
 for (i in 1:length(stvec)) {
   pdat=spydat[spydat$Station_Acronym==stvec[i],]
@@ -153,8 +165,12 @@ for (i in 1:length(stvec)) {
   
   
   time=as.factor(fac.ri)
-  fm.ri <- lm(metric ~ time+TP+year, data=pdat)
+  fm.ri <- lm(metric ~ time+TP+year, data=pdat, weights=weights)
+  fm.riN <- lm(metric ~ TP+year, data=pdat,weights=weights)
+  AIC(fm.ri, fm.riN)
   summary(fm.ri)
+  } else {
+    fm.ri <- lm(metric ~ TP+year, data=pdat,weights=weights)
   }
   amscale=mscale
   amscale=c(0, amscale[2])
@@ -190,7 +206,7 @@ for (i in 1:length(stvec)) {
     xx=pdat$year[ci[3]]
     yx=yn
     segments(xn[s], yn[s], xx[s], yx[s], col="blue", lwd=2, lend="square")
-    text(pdat$year[ci[2]]-2,44, pdat$year[ci[2]])
+    text(pdat$year[ci[2]]-2.5,44, pdat$year[ci[2]])
     abline(v=pdat$year[ci[2]], lty=2, col="blue")
   } else {
     yn=rep(hgt,tm)
@@ -202,15 +218,23 @@ for (i in 1:length(stvec)) {
   yx=yn
   segments(xn[s], yn[s], xx[s], yx[s], col="blue", lwd=2, lend="square")
   abline(v=pdat$year[ci[,2]], lty=2, col="blue")
-  text(pdat$year[ci[,2]]-2,44, pdat$year[ci[,2]])
+  text(pdat$year[ci[,2]]-2.5,44, pdat$year[ci[,2]])
   }
 
   
   
   mtext(mlab, side = 2, line = 0, outer = TRUE, at = NA,
         adj = NA, padj = NA, cex = 1.4, col = NA, font = NA)
+  mtext("year", side = 1, line = +2, outer = TRUE, at = NA,
+        adj = NA, padj = NA, cex = 1.4, col = NA, font = NA)
   
 
 }
+legend("right", c("data", "model", "breakpoint",
+                  "breakpoint CI"),
+       lty=c(1,1,2,1), col=c("grey", "red","blue", "blue"), 
+       pch=c(16,NA,NA,NA),
+       bty="n", cex=1.2)
+dev.off()
 
 ##########END BREAKPOINT
