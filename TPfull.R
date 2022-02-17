@@ -1,0 +1,209 @@
+#install.packages("readxl")
+rm(list=ls())
+library("readxl")
+
+#install.packages("mgcv")
+#this package fits a GAM
+library("mgcv")
+#install.packages("devtools") 
+#library("devtools")
+#devtools::install_github("gavinsimpson/gratia")
+#this package calcuates the finite difference of a GAM curve
+library("gratia")
+
+#read in data supplied by DFO, rename and aggregate into annuual means
+library(openxlsx)
+
+my_data <-(as.data.frame(read.csv("E:/homeoffice/kim/Quinte/Quinte2022.csv")))
+#rename col in recent file
+colnames(my_data)[1]<-"Station_Acronym"
+colnames(my_data)[colnames(my_data)=="Kd"] <- "epar"
+colnames(my_data)[colnames(my_data)=="Secchi"] <- "secchi"
+colnames(my_data)[colnames(my_data)=="chl"] <- "Chla"
+
+colnames(my_data)[colnames(my_data)=="TotalPhyto"]<-"Phyto_BM"
+
+mmetric="Chla" #select which metric to analyze
+
+#mlab=expression(Light~attenuation~(m^-1)) 
+mlab=expression(Chlorophyll~a~(mu~g~L^-1))
+#mlab=expression(Total~phosophorus~(mg~L^-1))
+
+mlab=expression(Light~attenuation~(m^-1)) 
+#mlab=expression(Chlorophyll~a~(mu~g~L^-1))
+#mlab=expression(Total~phosophorus~(mg~L^-1))
+#rlab=expression(Rate~of~change~(mg~L^-1~year^-1))
+rlab=expression(Rate~of~change~(m^-1~year^-1))
+#rlab=expression(Rate~of~change~(mu~g~L^-1~year^-1))
+sscal=0.0001 #phosophorus and round 3
+sscal=1.25 #clorophyll and round 1
+#sscal=0.005 #phosophorus and round 3
+sscal=1
+#aggregate and run analysis on selected sites
+agg <- aggregate(list(metric=my_data[mmetric],TP=my_data$TP), 
+                 by = list(Station_Acronym=my_data$Station_Acronym, year=my_data$year), 
+                 FUN=mean, na.rm=TRUE, na.action="na.pass")
+agg2 <- aggregate(list(metricN=my_data[mmetric]), 
+                  by = list(Station_Acronym=my_data$Station_Acronym, year=my_data$year), 
+                  FUN=length)
+agg$n=agg2[,3]
+agg$weights <- agg$n/mean(agg$n)
+colnames(agg)[3]="metric"
+colnames(agg)[4]="TP"
+
+
+
+
+#select sites on which to run analysis
+stvec=c("B", "HB",  "C")
+stlabel=c("Belleville", "Hay Bay", "Conway")
+xyear=c(1972,2008)
+spydat=agg[agg$Station_Acronym%in%stvec,]
+
+par(mfrow=c(3,2), mar=c(0,4,0,3), oma=c(5,5,2,2),cex.axis=1.25)
+pdat=spydat
+pdat=pdat[pdat$year%in%c(1972:2008),]
+xyear=c(1972,2008)
+str(pdat)
+N=1000 #number of points at which to evaluate the smooth
+
+pdat$Station_Acronym=as.factor(pdat$Station_Acronym)
+
+
+par(mfrow=c(3,2), mar=c(0,4,0,3), oma=c(5,5,2,2),cex.axis=1.25)
+
+str(pdat)
+N=1000 #number of points at which to evaluate the smooth
+
+
+form1="metric ~  te(TP,year,  bs='tp')"
+form2="metric ~  te(TP,year, bs='tp', m=2)+t2(TP,year,Station_Acronym, bs=c('tp','tp','re'),  m=2, full=TRUE)"  #gs
+form3="metric ~  Station_Acronym+te(TP,year, bs='tp', m=2)+te(TP,year,by=Station_Acronym, bs='tp', m=1)" #gi
+form4="metric ~  t2(TP,year,Station_Acronym, bs=c('tp','tp','re'),m=2, full=TRUE)" #s
+form5="metric ~  Station_Acronym+te(TP,year,by=Station_Acronym, bs=c('tp', 'tp'), m=2)" #i
+form6="metric ~  Station_Acronym+s(TP,bs='tp',m=2)+te(TP,year,by=Station_Acronym,  bs='tp',  m=1)" 
+form7="metric ~  Station_Acronym+s(TP,bs='tp',m=2)+s(year,by=Station_Acronym, bs='tp', m=2)" 
+form8="metric ~  Station_Acronym+s(TP,bs='tp',m=2)+s(year,bs='tp',m=2)" 
+form9="metric ~  s(TP,bs='tp',m=2)+s(year,by=Station_Acronym,bs='tp',m=2)"
+form10="metric ~  Station_Acronym+TP+s(year,by=Station_Acronym,bs='tp',m=2)"
+form11="metric ~  TP+s(year,by=Station_Acronym,bs='tp',m=2)"
+form12="metric ~  s(TP)"
+frmvec=c(form1,form2,form3, form4, form5, form6, form7, form8, 
+         form9, form10, form11, form12)
+rm(mm)
+mm=list()
+sc=vector()
+
+for (fr in 1:length(frmvec)){
+  print(fr)
+  m<- gam(as.formula(frmvec[fr]) ,
+          data = pdat, weights=weights, 
+          
+          na.action=na.omit,
+          niterPQL=100,
+          #correlation=corAR1(form = ~ year|Station_Acronym),
+          method = "REML")
+  sc[fr]=AIC(m)
+  
+  
+  
+}
+sc
+sc-min(sc)
+ind=which.min(sc)
+ind=7
+fm<- gam(as.formula(frmvec[ind]) ,
+         data = pdat, weights=weights, 
+         
+         na.action=na.omit,
+         niterPQL=100,
+         correlation=corAR1(form = ~ year|Station_Acronym),
+         
+         method = "REML")
+
+summary(fm)
+AIC(fm)
+concurvity(fm, full=TRUE)
+round(concurvity(fm, full=FALSE)$worst,2)
+
+draw(fm, residuals=TRUE, rug=FALSE)
+
+plot(fm, seWithMean=TRUE, shift=coef(fm)[1], rug=FALSE, 
+     shade=TRUE,residuals=TRUE, pch=16)
+#by.resids=TRUE)
+dort=draw(fm, rug=FALSE, residuals=TRUE)
+
+dort+labs(title = 'Main title', 
+          subtitle = 'My subtitle', caption = 'My caption')
+draw(m, residuals=TRUE, rug=FALSE)
+fmfit=fitted_values(fm)
+pdat=cbind(pdat,fmfit)
+
+fmderiv=as.data.frame(derivatives(fm, interval="simultaneous"))
+fmderiv$smooth=as.factor(fmderiv$smooth)
+lfm=split(fmderiv, fmderiv$smooth)
+par(mfrow=c(3,1), mar=c(1,4,0,3), oma=c(5,5,2,2),
+    cex.axis=1, cex.lab=1.75, cex.main=1.2, cex.sub=1)
+for (i in 2:4) {
+  dat=as.data.frame(lfm[i])
+  colnames(dat)=colnames(fmderiv)
+  plot(derivative~data, data=dat, ylim=c(-1.1,1.1), typ="l", lwd=2)
+  lines(lower~data, data=dat)
+  lines(upper~data, data=dat)
+  abline(h=0)
+  abline(v=1994)
+}
+
+smooth_estimates(fm)
+yearfit=predict(fm, newdata=pdat, se.fit=TRUE)
+pdat$yrfit=yearfit$fit
+pdat$yrse=yearfit$se
+
+mscale=c(0,
+         max(pdat$upper, na.rm=T)+sscal)
+par(mfcol=c(3,2), mar=c(0.5,3,1,1), oma=c(4,3,0,0),
+    cex.axis=1.2, cex.lab=1.75, cex.main=1.2, cex.sub=1)
+for (i in 1:3){
+  
+  datre=pdat[pdat$Station_Acronym==stvec[i],]
+  plot(metric~year, xaxt="n",pch=16, data=datre,col="dark grey",
+       ann=FALSE, xlim=xyear,ylim=c(0,39),las=2)
+  lines(fitted~year, lwd=2,data=datre,col="purple")
+# lines(upper~year, data=datre,col="purple")
+#  lines(lower~year, data=datre,col="purple")
+  x=c(rev(datre$lower), datre$upper)
+  y=c(rev(datre$year), datre$year)
+  polygon(y,x, col=adjustcolor("grey",alpha.f=0.3), border=NA )
+  legend("topright",stlabel[i], bty="n",
+         cex=1.5)
+}
+mtext(mlab, side = 2, line = 0, outer = TRUE, at = NA,
+      adj = NA, padj = NA, cex = 1.4, col = NA, font = NA)
+mtext("year", side = 1, line = +2, outer = TRUE, at = NA,
+      adj = NA, padj = NA, cex = 1.4, col = NA, font = NA)
+
+pout=partial_residuals(fm, select = "s(year)", partial_match=TRUE)
+sout=smooth_estimates(fm, smooth = "s(year)", partial_match=TRUE)
+
+
+
+
+
+par(mfrow=c(3,1), mar=c(1,4,0,3), oma=c(5,5,2,2),
+    cex.axis=1, cex.lab=1.75, cex.main=1.2, cex.sub=1)
+derivatives(fm, interval="simultaneous")
+dtall=as.data.frame(derivatives(fm, interval="simultaneous"))
+dtall=as.data.frame(derivatives(fm, interval="simultaneous"))
+dtall$smooth=as.factor(dtall$smooth)
+dlit=split(dtall, dtall$smooth)
+for (i in 2:4) {
+  dat=dlit[i]
+  dat=as.data.frame(dlit[i])
+  colnames(dat)=colnames(dtall)
+  plot(derivative~data, data=dat, ylim=c(-1,1), typ="l", lwd=2)
+  lines(lower~data, data=dat)
+  lines(upper~data, data=dat)
+  abline(h=0)
+  abline(v=1994)
+  
+}
