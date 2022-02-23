@@ -1,6 +1,6 @@
 #install.packages("readxl")
-rm(list=ls())
-
+#rm(list=ls())
+rm(list= ls()[!(ls() %in% c('pcdat','fc', 'fcvec'))])
 library("readxl")
 
 #install.packages("mgcv")
@@ -24,18 +24,12 @@ colnames(my_data)[colnames(my_data)=="chl"] <- "Chla"
 
 colnames(my_data)[colnames(my_data)=="TotalPhyto"]<-"Phyto_BM"
 
-mmetric="Chla" #select which metric to analyze
+mmetric="epar" #select which metric to analyze
 
-#mlab=expression(Light~attenuation~(m^-1)) 
-mlab=expression(Chlorophyll~a~(mu~g~L^-1))
+mlab=expression(Light~attenuation~(m^-1)) 
+#mlab=expression(Chlorophyll~a~(mu~g~L^-1))
 #mlab=expression(Total~phosophorus~(mg~L^-1))
 
-#mlab=expression(Light~attenuation~(m^-1)) 
-mlab=expression(Chlorophyll~a~(mu~g~L^-1))
-#mlab=expression(Total~phosophorus~(mg~L^-1))
-#rlab=expression(Rate~of~change~(mg~L^-1~year^-1))
-rlab=expression(Rate~of~change~(m^-1~year^-1))
-#rlab=expression(Rate~of~change~(mu~g~L^-1~year^-1))
 sscal=0.0001 #phosophorus and round 3
 sscal=1.25 #clorophyll and round 1
 #sscal=0.005 #phosophorus and round 3
@@ -69,7 +63,7 @@ str(pdat)
 N=1000 #number of points at which to evaluate the smooth
 
 pdat$Station_Acronym=as.factor(pdat$Station_Acronym)
-pcdat=pdat
+
 
 par(mfrow=c(3,2), mar=c(0,4,0,3), oma=c(5,5,2,2),cex.axis=1.25)
 
@@ -89,15 +83,15 @@ form9="metric ~  s(TP,bs='tp',m=2)+s(year,by=Station_Acronym,bs='tp',m=2)"
 form10="metric ~  Station_Acronym+TP+s(year,by=Station_Acronym,bs='tp',m=2)"
 form11="metric ~  TP+s(year,by=Station_Acronym,bs='tp',m=2)"
 form12="metric ~  s(TP)"
-fcvec=c(form1,form2,form3, form4, form5, form6, form7, form8, 
+frmvec=c(form1,form2,form3, form4, form5, form6, form7, form8, 
          form9, form10, form11, form12)
 rm(mm)
 mm=list()
 sc=vector()
 
-for (fr in 1:length(fcvec)){
+for (fr in 1:length(frmvec)){
   print(fr)
-  m<- gam(as.formula(fcvec[fr]) ,
+  m<- gam(as.formula(frmvec[fr]) ,
           data = pdat, weights=weights, 
           
           na.action=na.omit,
@@ -113,7 +107,7 @@ sc
 sc-min(sc)
 ind=which.min(sc)
 ind=7
-fc<- gam(as.formula(fcvec[ind]) ,
+fm<- gam(as.formula(frmvec[ind]) ,
          data = pdat, weights=weights, 
          
          na.action=na.omit,
@@ -122,33 +116,33 @@ fc<- gam(as.formula(fcvec[ind]) ,
          
          method = "REML")
 
-summary(fc)
-AIC(fc)
-concurvity(fc, full=TRUE)
-round(concurvity(fc, full=FALSE)$worst,2)
+summary(fm)
+AIC(fm)
+concurvity(fm, full=TRUE)
+round(concurvity(fm, full=FALSE)$worst,2)
 
-draw(fc, residuals=TRUE, rug=FALSE)
+draw(fm, residuals=TRUE, rug=FALSE)
 
-drt=plot(fc, seWithMean=TRUE, shift=coef(fc)[1], rug=FALSE, 
+drt=plot(fm, seWithMean=TRUE, shift=coef(fm)[1], rug=FALSE, 
      shade=TRUE,residuals=TRUE, pch=16)
 #by.resids=TRUE)
-dort=draw(fc, rug=FALSE, residuals=TRUE)
+dort=draw(fm, rug=FALSE, residuals=TRUE)
 
 dort+labs(title = 'Main title', 
           subtitle = 'My subtitle', caption = 'My caption')
 draw(m, residuals=TRUE, rug=FALSE)
-fcfit=fitted_values(fc)
-pdat=cbind(pdat,fcfit)
+fmfit=fitted_values(fm)
+pdat=cbind(pdat,fmfit)
 
-fcderiv=as.data.frame(derivatives(fc, interval="simultaneous"))
-fcderiv$smooth=as.factor(fcderiv$smooth)
-lfc=split(fcderiv, fcderiv$smooth)
+fmderiv=as.data.frame(derivatives(fm, interval="simultaneous"))
+fmderiv$smooth=as.factor(fmderiv$smooth)
+lfm=split(fmderiv, fmderiv$smooth)
 par(mfrow=c(3,1), mar=c(1,4,0,3), oma=c(5,4,2,2),
-    cex.axis=0.8, cex.lab=1.75, cex.main=1.2, cex.sub=1)
+    cex.axis=1, cex.lab=1.75, cex.main=1.2, cex.sub=1)
 dseq=c(1,3,2)
 for (i in seq_along(dseq)) {
-  dat=as.data.frame(lfc[i])
-  colnames(dat)=colnames(fcderiv)
+  dat=as.data.frame(lfm[i])
+  colnames(dat)=colnames(fmderiv)
   plot(derivative~data, data=dat, ylim=c(-1.1,1.1), 
        typ="l", lwd=2)
   lines(lower~data, data=dat)
@@ -157,8 +151,8 @@ for (i in seq_along(dseq)) {
   abline(v=1994)
 }
 
-smooth_estimates(fc)
-yearfit=predict(fc, newdata=pdat, se.fit=TRUE)
+smooth_estimates(fm)
+yearfit=predict(fm, newdata=pdat, se.fit=TRUE)
 pdat$yrfit=yearfit$fit
 pdat$yrse=yearfit$se
 
@@ -166,9 +160,9 @@ mscale=c(0,
          max(pdat$upper, na.rm=T)+sscal)
 #####
 
-#tiff('baseR_figure.tiff', width =130, 
-#     height = 80, pointsize = 12,
-#     units = 'mm', res = 300)
+tiff('baseR_figure.tiff', width =130, 
+     height = 80, pointsize = 12,
+     units = 'mm', res = 300)
 
 jpeg('baseR_figure.jpeg', width =130,height = 80,
      units = 'mm', pointsize = 12,
@@ -181,7 +175,7 @@ panlab=c("(a)","(b)","(c)","(d)","(e)","(f)","(g)","(h)","(j)", "(i)" )
 par(mfcol=c(3,3), mar=c(0.5,4,1,1), oma=c(4,1,0,0),
     cex.axis=1.1, cex.lab=1.75, cex.main=1.2, cex.sub=1)
 for (i in 1:3){
-  ylim1=c(0,43)
+  ylim1=c(0.5,2.25)
   if (i==3) ylim1=ylim1/2
   datre=pdat[pdat$Station_Acronym==stvec[i],]
   plot(metric~year, xaxt="n",pch=16, data=datre,bty='l',cex=.8,
@@ -192,7 +186,7 @@ for (i in 1:3){
   x=c(rev(datre$lower), datre$upper)
   y=c(rev(datre$year), datre$year)
   polygon(y,x, col=adjustcolor("grey",alpha.f=0.3), border=NA )
-  legend("topright",panlab[i], bty="n",
+  legend("topright",panlab[i], bty="n",inset=c(-0.025,-0.07),
          cex=1.)
 #  text(y=35, x=1990,stlabel[i], bty="n",
  #      cex=1.25 )
@@ -206,11 +200,11 @@ mtext(mlab, side = 2, line = -1.5, outer = TRUE, at = NA,
 mtext("year", side = 1, line = +2, outer = TRUE, at = NA,
       adj = NA, padj = NA, cex = 1.4, col = NA, font = NA)
 
-pout=partial_residuals(fc, select = "s(year)", partial_match=TRUE)
-sout=smooth_estimates(fc, smooth = "s(year)", partial_match=TRUE)
+pout=partial_residuals(fm, select = "s(year)", partial_match=TRUE)
+sout=smooth_estimates(fm, smooth = "s(year)", partial_match=TRUE)
 pout=pout[,c(1,3,2)]
 # or selected smooths
-dfsm=edf(fc, smooth = colnames(pout))
+dfsm=edf(fm, smooth = colnames(pout))
 dfsm=as.data.frame(dfsm)
 drt[[2]]$p.resid
 
@@ -221,7 +215,7 @@ pdat$mgB=drt[[2]]$p.resid
 pdat$mgHB=drt[[2]]$p.resid
 #par(mfcol=c(3,2), mar=c(0.5,3,1,1), oma=c(4,3,0,0),
  #   cex.axis=1.2, cex.lab=1.75, cex.main=1.2, cex.sub=1)
-
+ylim2=c(-.5,.55)
 for (i in 1:3){
   mgres=drt[[i+1]]$p.resid
   wind=which(pdat$Station_Acronym==stvec[i])
@@ -229,10 +223,10 @@ for (i in 1:3){
   datsm=sout[sout$Station_Acronym==stvec[i],]
   datsres=pdat[wind,]
   yname=(paste0("s(year):",stvec[i]))
- 
+ if (i==3) ylim2=ylim2/2
   plot(datsres[,yname]~year, xaxt="n",pch=16,col="grey", 
        data=datsres,bty='l', cex=.8,
-       ann=FALSE, xlim=c(1972.5,2007.5),ylim=c(-15,15),las=2)
+       ann=FALSE, xlim=c(1972.5,2007.5),ylim=ylim2,las=2)
   lines(est~year, lwd=2,data=datsm,col="dark green")
  # points(mgres~year, data=datsres, col="red")
   datsm$upper = datsm$est + (dfsm[i,2] * datsm$se)
@@ -249,20 +243,22 @@ for (i in 1:3){
                 adj = NA, padj = NA, cex = 1.1, col = NA, font = NA)
   if ( i==3)axis(side=1, las=1)
   #legend("topright",stlabel[i], bty="n",cex=1.5)
-  legend("topright",panlab[i+3], bty="n",
+  legend("topright",panlab[i+3], bty="n",inset=c(-0.025,-0.07),
          cex=1.)
 }
 
 
-derivatives(fc, interval="simultaneous")
-dtall=as.data.frame(derivatives(fc, interval="simultaneous"))
-dtall=as.data.frame(derivatives(fc, interval="simultaneous"))
+derivatives(fm, interval="simultaneous")
+dtall=as.data.frame(derivatives(fm, interval="simultaneous"))
+dtall=as.data.frame(derivatives(fm, interval="simultaneous"))
 dtall$smooth=as.factor(dtall$smooth)
 dlit=split(dtall, dtall$smooth)
-yaxl=c(-1.5,1.5)
+
 dseq=c(2,4,3)
 
 for (j in seq_along(dseq)) {
+  yaxl=c(-.04,.065)
+  if (j==3) yaxl=yaxl/2
   i=dseq[j]
   dat=dlit[i]
   dat=as.data.frame(dlit[i])
@@ -272,19 +268,20 @@ for (j in seq_along(dseq)) {
   lines(lower~data, data=dat, col="dark red")
   lines(upper~data, data=dat,col="dark red")
   x=c(rev(dat$lower), dat$upper)
-  x[x>yaxl[2]]<-yaxl[2]+.1
-  x[x< yaxl[1]]<-yaxl[1]-.1
+  x[x>yaxl[2]]<-yaxl[2]+.01
+  x[x< yaxl[1]]<-yaxl[1]-.01
   y=c(rev(dat$data), dat$data)
   polygon(y,x, col=adjustcolor("dark red",alpha.f=0.1), border=NA )
   
   abline(h=0, col="dark grey", lwd=2)
   abline(v=1994, col="dark grey", lwd=2)
-  if (i==3) text(1988, 1.4, "1994", cex=0.9)
+  if (i==3) text(1988, 0.025, "1994", cex=0.9)
   if (i==3)axis(side=1, las=1)
   if (i==4) mtext("Derivative of smooth", side = 2, line = 3.25, outer = FALSE, at = NA,
                   adj = NA, padj = NA, cex = 1.1, col = NA, font = NA)
-  legend("topright",panlab[i+6], bty="n",
+  legend("topright",panlab[i+6], bty="n",inset=c(-0.025,-0.07), 
          cex=1.)
   
 }
 dev.off()
+

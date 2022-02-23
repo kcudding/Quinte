@@ -1,0 +1,95 @@
+---
+title: "Untitled"
+author: "Kim Cuddington"
+date: "11/02/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#rmarkdown::render("gamtables.Rmd") to use previously calcluated
+
+library(rmarkdown)
+library(kableExtra)
+```
+
+## BREAKPOINT
+```{r}
+ 
+  #table of output
+summary(fm)$adj.r.squared
+options("scipen"=2, "digits"=2)
+regout=(summary(fm)$p.table)
+row.names(regout)=c("Intercept (B)", "C", "HB")
+regout=as.data.frame(regout)
+regout[,4]=formatC(regout[,4], format = "e", digits = 1)
+
+
+
+sregout=summary(fm)$s.table
+row.names(sregout)=c("s(TP)", "s(year):B", "s(year):C","s(year):HB")
+sregout=as.data.frame(sregout)
+sregout[,4]=formatC(sregout[,4], format = "e", digits = 1)
+
+
+dataframe_list=list(regout, sregout)
+
+
+
+
+regco=kable((dataframe_list),format="html", table.attr = "style='width:80%;'",
+   caption="Light attenuation")
+regco
+tsave=footnote(kable_classic(regco),
+         general = paste("deviance explained=", round(summary(fm)$dev.expl,2)),
+         footnote_as_chunk = TRUE,
+         general_title = "")
+
+
+tsave
+```
+
+
+```{r}
+ 
+  #table of output
+summary(fc)$adj.r.squared
+options("scipen"=2, "digits"=2)
+regout=(summary(fc)$p.table)
+row.names(regout)=c("Intercept (B)", "C", "HB")
+regout=as.data.frame(regout)
+regout[,4]=formatC(regout[,4], format = "e", digits = 1)
+
+
+
+sregout=summary(fc)$s.table
+row.names(sregout)=c("s(TP)", "s(year):B", "s(year):C","s(year):HB")
+sregout=as.data.frame(sregout)
+sregout[,4]=formatC(sregout[,4], format = "e", digits = 1)
+
+
+dataframe_list=list(regout, sregout)
+
+
+
+
+regco=kable((dataframe_list),format="html", table.attr = "style='width:80%;'",
+   caption="Chlorophyll a")
+regco
+tsave=footnote(kable_classic(regco),
+         general = paste("deviance explained=", round(summary(fc)$dev.expl,2)),
+         footnote_as_chunk = TRUE,
+         general_title = "")
+
+
+tsave
+```
+
+
+
+fname=paste0(mmetric,"Site", stvec[i],".png")
+
+
+#save_kable(tsave,file=fname, density=600, zoom = 1.25, #bs_theme = "flatly")
+
+```
