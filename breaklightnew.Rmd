@@ -1,7 +1,5 @@
 ---
-title: "Untitled"
-author: "Kim Cuddington"
-date: "11/02/2022"
+date: "25/02/2022"
 output: html_document
 ---
 
@@ -13,7 +11,7 @@ library(rmarkdown)
 library(kableExtra)
 ```
 
-## BREAKPOINT
+### BREAKPOINT
 ```{r}
 rm(list=ls())
 #read in data supplied by DFO, rename and aggregate into annuual means
@@ -28,13 +26,14 @@ colnames(my_data)[colnames(my_data)=="chl"] <- "Chla"
 
 colnames(my_data)[colnames(my_data)=="TotalPhyto"]<-"Phyto_BM"
 
-mmetric="Chla" #select which metric to analyze
-#mlab=expression(Light~attenuation~(m^-1)) 
-mlab=expression(Chlorophyll~a~(mu~g~L^-1))
+mmetric="epar" #select which metric to analyze
+mlab=expression(Light~attenuation~(m^-1)) 
+#mlab=expression(Chlorophyll~a~(mu~g~L^-1))
 #mlab=expression(Total~phosophorus~(mg~L^-1))
 
 
-sscal=1.25 #clorophyll and round 1
+#sscal=1.25 #clorophyll and round 1
+sscal=1. #clorophyll and round 1
 
 #aggregate and run analysis on selected sites
 frm=paste(mmetric,"~ Station_Acronym+year")
@@ -165,7 +164,7 @@ tsave
 
 ```
 
-```{r, results='asis'}
+```{r}
 reglist=list()
 #tiff('baseR_figure.tiff', width =85, 
 #     height = 180, pointsize = 12,
@@ -191,7 +190,7 @@ for (i in 1:length(stvec)) {
   b=breakpoints(metric ~ year+TP, data=pdat)
   #b=breakpoints(metric ~ year, data=pdat)
   print(b)
-
+cat('\n\n<!-- -->\n\n')
   if (sum(!is.na(b$breakpoints))>0){
   
   # fit segmented model
@@ -218,14 +217,15 @@ for (i in 1:length(stvec)) {
   
 reglist[[i]]=fm.ri  
   
-summary(fm.ri)$adj.r.squared
+#summary(fm.ri)$adj.r.squared
 
 
   amscale=mscale
   amscale=c(0, amscale[2])
   if (i==3) amscale[2]=mscale[2]/3
   plot(metric~year, data=pdat, type="b",xaxt="n",pch=16,col="grey",
-       ann=FALSE, xlim=xyear, ylim=c(0,45),las=2,yaxp=c(0,round(40,2),4))
+      # ann=FALSE, 
+       xlim=xyear, ylim=c(0,2),las=2,yaxp=c(0,round(2,2),4))
   
   if ( i==3)axis(side=1, las=1)
   legend("topright",stlabel[i], bty="n",
@@ -255,7 +255,7 @@ summary(fm.ri)$adj.r.squared
     xx=pdat$year[ci[3]]
     yx=yn
     segments(xn[s], yn[s], xx[s], yx[s], col="blue", lwd=2, lend="square")
-    text(pdat$year[ci[2]]-2.5,44, pdat$year[ci[2]])
+    text(pdat$year[ci[2]]-2.5,2, pdat$year[ci[2]])
     abline(v=pdat$year[ci[2]], lty=2, col="blue")
   } else {
     yn=rep(hgt,tm)
@@ -267,7 +267,7 @@ summary(fm.ri)$adj.r.squared
   yx=yn
   segments(xn[s], yn[s], xx[s], yx[s], col="blue", lwd=2, lend="square")
   abline(v=pdat$year[ci[,2]], lty=2, col="blue")
-  text(pdat$year[ci[,2]]-2.5,44, pdat$year[ci[,2]])
+  text(pdat$year[ci[,2]]-2.5,y=2, pdat$year[ci[,2]])
   }
 
  }
@@ -293,39 +293,35 @@ legend("right", c("data", "model", "breakpoint",
 ```{r}
 i=1
 regout=summary(reglist[[i]])$coefficients 
-
+ rsq=round((summary(reglist[[i]])$adj.r.squared),2)
 regco=kable((regout), digits=2,
             #format="html", table.attr = "style='width:60%;'",
    caption=paste(mmetric,"Site", stvec[i]))
 tsave=footnote(kable_classic(regco),
-         general = paste("adj. R squared=", round((summary(fm.ri)$adj.r.squared),2)),
+         general = paste("adj. R squared=",rsq),
          footnote_as_chunk = TRUE,
          general_title = "")
 
 #fname=paste0(mmetric,"Site", stvec[i],".png")
 tsave
-#cat('\n\n<!-- -->\n\n')
-
-#save_kable(tsave,file=fname, density=600, zoom = 1.25, bs_theme = "flatly")
-
 
 ```
 
 ```{r}
 i=2
-regout=summary(reglist[[i]])$coefficients 
 
+regout=summary(reglist[[i]])$coefficients 
+ rsq=round((summary(reglist[[i]])$adj.r.squared),2)
 regco=kable((regout), digits=2,
             #format="html", table.attr = "style='width:60%;'",
    caption=paste(mmetric,"Site", stvec[i]))
 tsave=footnote(kable_classic(regco),
-         general = paste("adj. R squared=", round((summary(fm.ri)$adj.r.squared),2)),
+         general = paste("adj. R squared=",rsq),
          footnote_as_chunk = TRUE,
          general_title = "")
 
 #fname=paste0(mmetric,"Site", stvec[i],".png")
 tsave
-#cat('\n\n<!-- -->\n\n')
 
 #save_kable(tsave,file=fname, density=600, zoom = 1.25, bs_theme = "flatly")
 
@@ -335,12 +331,12 @@ tsave
 ```{r}
 i=3
 regout=summary(reglist[[i]])$coefficients 
-
+ rsq=round((summary(reglist[[i]])$adj.r.squared),2)
 regco=kable((regout), digits=2,
             #format="html", table.attr = "style='width:60%;'",
    caption=paste(mmetric,"Site", stvec[i]))
 tsave=footnote(kable_classic(regco),
-         general = paste("adj. R squared=", round((summary(fm.ri)$adj.r.squared),2)),
+         general = paste("adj. R squared=",rsq),
          footnote_as_chunk = TRUE,
          general_title = "")
 
