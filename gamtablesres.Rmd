@@ -1,13 +1,6 @@
 ---
-title: "Untitled"
-author: "Kim Cuddington"
-date: "11/02/2022"
- 
-output:
-  word_document: default
-  html_document: default
-  
-always_allow_html: true
+date: "25/02/2022"
+output: html_document
 ---
 
 ```{r setup, include=FALSE}
@@ -18,11 +11,11 @@ library(rmarkdown)
 library(kableExtra)
 ```
 
-## BREAKPOINT
+## Gam on residuals
 ```{r}
  
   #table of output
-summary(frl)$adj.r.squared
+
 options("scipen"=2, "digits"=2)
 regout=(summary(frl)$p.table)
 row.names(regout)=c("Intercept (B)", "C", "HB")
@@ -59,7 +52,7 @@ tsave
 ```{r}
  
   #table of output
-summary(frc)$adj.r.squared
+
 options("scipen"=2, "digits"=2)
 regout=(summary(frc)$p.table)
 row.names(regout)=c("Intercept (B)", "C", "HB")
@@ -94,7 +87,7 @@ tsave
 ```{r}
  
   #table of output
-summary(mc)$adj.r.squared
+
 options("scipen"=2, "digits"=2)
 regout=(summary(mc)$p.table)
 #row.names(regout)=c("Intercept (B)", "C", "HB")
@@ -117,7 +110,7 @@ dataframe_list=list(regout, sregout)
 regco=kable((dataframe_list),
             #format="html", table.attr = "style='width:80%;'",
    caption="Chlorophyll a: TP")
-regco
+#regco
 tsave=footnote(kable_classic(regco),
          general = paste("deviance explained=", round(summary(mc)$dev.expl,2)),
          footnote_as_chunk = TRUE,
@@ -129,7 +122,7 @@ tsave
 ```{r}
 
   #table of output
-summary(ml)$adj.r.squared
+
 options("scipen"=2, "digits"=2)
 regout=(summary(ml)$p.table)
 #row.names(regout)=c("Intercept (B)", "C", "HB")
@@ -152,7 +145,7 @@ dataframe_list=list(regout, sregout)
 regco=kable((dataframe_list),
             #format="html", table.attr = "style='width:80%;'",
    caption="Light attenuation: TP")
-regco
+#regco
 tsave=footnote(kable_classic(regco),
          general = paste("deviance explained=", round(summary(ml)$dev.expl,2)),
          footnote_as_chunk = TRUE,
@@ -162,9 +155,3 @@ tsave=footnote(kable_classic(regco),
 tsave
 ```
 
-fname=paste0(mmetric,"Site", stvec[i],".png")
-
-
-#save_kable(tsave,file=fname, density=600, zoom = 1.25, #bs_theme = "flatly")
-
-```
