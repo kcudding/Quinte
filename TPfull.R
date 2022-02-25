@@ -110,6 +110,7 @@ for (fr in 1:length(fcvec)){
   
 }
 sc
+scc=sc
 sc-min(sc)
 ind=which.min(sc)
 ind=7
@@ -118,7 +119,7 @@ fc<- gam(as.formula(fcvec[ind]) ,
          
          na.action=na.omit,
          niterPQL=100,
-         correlation=corAR1(form = ~ year|Station_Acronym),
+         #correlation=corAR1(form = ~ year|Station_Acronym),
          
          method = "REML")
 
@@ -126,6 +127,23 @@ summary(fc)
 AIC(fc)
 concurvity(fc, full=TRUE)
 round(concurvity(fc, full=FALSE)$worst,2)
+
+
+redform7="metric ~  Station_Acronym+s(year,by=Station_Acronym, bs='tp', m=2)" 
+
+fcred<- gam(as.formula(fcvec[12]) ,
+            data = pdat, weights=weights, 
+            
+            na.action=na.omit,
+            niterPQL=100,
+            # correlation=corAR1(form = ~ year|Station_Acronym),
+            
+            method = "REML")
+
+summary(fcred)
+
+
+
 
 draw(fc, residuals=TRUE, rug=FALSE)
 

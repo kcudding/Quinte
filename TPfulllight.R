@@ -1,6 +1,6 @@
 #install.packages("readxl")
 #rm(list=ls())
-rm(list= ls()[!(ls() %in% c('pcdat','fc', 'fcvec'))])
+rm(list= ls()[!(ls() %in% c('pcdat','fc', 'fcvec', 'fcred', 'scc'))])
 library("readxl")
 
 #install.packages("mgcv")
@@ -107,12 +107,13 @@ sc
 sc-min(sc)
 ind=which.min(sc)
 ind=7
+
 fm<- gam(as.formula(frmvec[ind]) ,
          data = pdat, weights=weights, 
          
          na.action=na.omit,
          niterPQL=100,
-         correlation=corAR1(form = ~ year|Station_Acronym),
+         #correlation=corAR1(form = ~ year|Station_Acronym),
          
          method = "REML")
 
@@ -120,6 +121,19 @@ summary(fm)
 AIC(fm)
 concurvity(fm, full=TRUE)
 round(concurvity(fm, full=FALSE)$worst,2)
+
+redform7="metric ~  Station_Acronym+s(year,by=Station_Acronym, bs='tp', m=2)" 
+
+fmred<- gam(as.formula(frmvec[12]) ,
+         data = pdat, weights=weights, 
+         
+         na.action=na.omit,
+         niterPQL=100,
+        # correlation=corAR1(form = ~ year|Station_Acronym),
+         
+         method = "REML")
+
+summary(fmred)
 
 draw(fm, residuals=TRUE, rug=FALSE)
 
@@ -143,7 +157,8 @@ dseq=c(1,3,2)
 for (i in seq_along(dseq)) {
   dat=as.data.frame(lfm[i])
   colnames(dat)=colnames(fmderiv)
-  plot(derivative~data, data=dat, ylim=c(-1.1,1.1), 
+  plot(derivative~data, data=dat, 
+       #ylim=c(-1.1,1.1), 
        typ="l", lwd=2)
   lines(lower~data, data=dat)
   lines(upper~data, data=dat)

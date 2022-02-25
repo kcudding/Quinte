@@ -11,7 +11,7 @@ always_allow_html: true
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
 #rmarkdown::render("gamtablesres.Rmd") to use previously calcluated
 #rmarkdown::render("gamtablesres.Rmd", output_format="all")
 library(rmarkdown)
@@ -44,8 +44,8 @@ dataframe_list=list(regout, sregout)
 
 regco=kable((dataframe_list),
             #format="html", table.attr = "style='width:80%;'",
-   caption="Light attenuation")
-regco
+   caption="Light attenuation: residuals")
+#regco
 tsave=footnote(kable_classic(regco),
          general = paste("deviance explained=", round(summary(frl)$dev.expl,2)),
          footnote_as_chunk = TRUE,
@@ -81,8 +81,8 @@ dataframe_list=list(regout, sregout)
 
 regco=kable((dataframe_list),
             #format="html", table.attr = "style='width:80%;'",
-   caption="Chlorophyll a")
-regco
+   caption="Chlorophyll a:residuals")
+#regco
 tsave=footnote(kable_classic(regco),
          general = paste("deviance explained=", round(summary(frc)$dev.expl,2)),
          footnote_as_chunk = TRUE,
@@ -116,7 +116,7 @@ dataframe_list=list(regout, sregout)
 
 regco=kable((dataframe_list),
             #format="html", table.attr = "style='width:80%;'",
-   caption="Chlorophyll a")
+   caption="Chlorophyll a: TP")
 regco
 tsave=footnote(kable_classic(regco),
          general = paste("deviance explained=", round(summary(mc)$dev.expl,2)),
@@ -151,7 +151,7 @@ dataframe_list=list(regout, sregout)
 
 regco=kable((dataframe_list),
             #format="html", table.attr = "style='width:80%;'",
-   caption="Light attenuation")
+   caption="Light attenuation: TP")
 regco
 tsave=footnote(kable_classic(regco),
          general = paste("deviance explained=", round(summary(ml)$dev.expl,2)),
