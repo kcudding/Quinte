@@ -1,22 +1,19 @@
 ---
 date: "25/02/2022"
-output:
-  pdf_document: default
-  html_document: default
-  word_document: default
+output: html_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, warning=FALSE, message=FALSE, comment="")
 
-
+rm(list=ls())
 library(rmarkdown)
 library(kableExtra)
 ```
 
-### BREAKPOINT
+### BREAKPOINT on TP
 ```{r}
-rm(list=ls())
+
 #read in data supplied by DFO, rename and aggregate into annuual means
 library(openxlsx)
 
@@ -30,14 +27,14 @@ colnames(my_data)[colnames(my_data)=="chl"] <- "Chla"
 colnames(my_data)[colnames(my_data)=="TotalPhyto"]<-"Phyto_BM"
 
 mmetric="epar" #select which metric to analyze
-mlab=expression(Light~attenuation~(m^-1)) 
+#mlab=expression(Light~attenuation~(m^-1)) 
 #mlab=expression(Chlorophyll~a~(mu~g~L^-1))
-#mlab=expression(Total~phosophorus~(mg~L^-1))
+mlab=expression(Total~phosophorus~(mg~L^-1))
 
 
 #sscal=1.25 #clorophyll and round 1
 sscal=1. #clorophyll and round 1
-
+sscal=0.01 #clorophyll and round 1
 #aggregate and run analysis on selected sites
 frm=paste(mmetric,"~ Station_Acronym+year")
 spydat=aggregate(as.formula(frm), my_data, length)
@@ -89,38 +86,27 @@ lylab=c("", ly, "")
 
 
 #TP model
-tp1=(lm(metric~TP+Station_Acronym, weights=weights, data=spydat))
-tp2=(lm(metric~TP:Station_Acronym, weights=weights, data=spydat))
-tp3=(lm(metric~TP:Station_Acronym+Station_Acronym, weights=weights, data=spydat))
+tp1=(lm(TP~year:Station_Acronym, weights=weights, data=spydat))
+tp2=(lm(TP~year+Station_Acronym, weights=weights, data=spydat))
+tp3=(lm(TP~year:Station_Acronym+Station_Acronym, weights=weights, data=spydat))
 
 
-#metric model
-#tp1=(lm(metric~year+Station_Acronym, weights=weights, data=spydat))
-#tp2=(lm(metric~year:Station_Acronym, weights=weights, data=spydat))
-#tp3=(lm(metric~year:Station_Acronym+Station_Acronym, weights=weights, data=spydat))
-#metric model
-tp4=(lm(metric~TP+year:Station_Acronym+Station_Acronym, weights=weights, data=spydat))
-tp5=(lm(metric~TP+year+Station_Acronym, weights=weights, data=spydat))
-tp6=(lm(metric~TP:year:Station_Acronym+Station_Acronym, weights=weights, data=spydat))
-tp7=(lm(metric~TP:Station_Acronym+year+Station_Acronym, weights=weights, data=spydat))
-tp8=(lm(metric~TP+year:Station_Acronym, weights=weights, data=spydat))
-tp9=(lm(metric~TP+year+Station_Acronym, weights=weights, data=spydat))
-tp10=(lm(metric~TP:year:Station_Acronym, weights=weights, data=spydat))
-tp11=(lm(metric~TP:Station_Acronym+year, weights=weights, data=spydat))
 
 
 
 cop=AIC(tp1,tp2,tp3)
-print(cop)
-
-print(c(summary(tp1)$adj.r.squared,summary(tp2)$adj.r.squared,summary(tp3)$adj.r.squared))
+cop
 m1=which.min(cop$AIC)
 mod=row.names(cop)[m1]
 bestmod=as.name(mod)
 #summary(eval(bestmod))
 
+```
+A model with site-specific slopes and intercepts, was preferred ((AIC=`r cop[3,2]`, $R^2$=`r summary(tp3)$adj.r.squared`) over a model with global slope, but site specific intercepts (AIC=`r cop[1,2]`, $R^2$=`r summary(tp1)$adj.r.squared`) and models with site specific slopes but global intercepts (AIC=`r cop[2,2]`, $R^2$=`r summary(tp2)$adj.r.squared`).
 
-mpred=as.data.frame(predict(tp3, spydat, interval="confidence"))
+
+```{r}
+mpred=as.data.frame(predict(tp2, spydat, interval="confidence"))
 
 spydat=cbind(spydat, mpred)
 
@@ -130,8 +116,8 @@ par(mfrow=c(3,1), mar=c(1,4,0,3), oma=c(5,5,2,2),
 for (i in 1:length(stvec)) {
   pdat=spydat[spydat$Station_Acronym==stvec[i],]
   
-  mscale=c(min(pdat$metric, na.rm=TRUE)-sscal,
-           max(pdat$metric, na.rm=T)+sscal)
+  mscale=c(min(pdat$TP, na.rm=TRUE)-sscal,
+           max(pdat$TP, na.rm=T)+sscal)
   amscale=mscale
   mss=which(!complete.cases(pdat))
   if (length(mss)>0) pdat=pdat[-mss,]
@@ -139,8 +125,8 @@ for (i in 1:length(stvec)) {
  
   amscale[2]=mscale[2]/3
   }
-ymax=round(max(pdat$metric, na.rm=T),2)
-plot(metric~year, data=pdat, type="b",xaxt="n",pch=16,col="grey",
+ymax=round(max(pdat$TP, na.rm=T),2)
+plot(TP~year, data=pdat, type="b",xaxt="n",pch=16,col="grey",
      ann=FALSE, xlim=xyear, ylim=c(0,ymax+0.01), las=2, yaxp=c(0,ymax,3))
 
 if ( i==3)axis(side=1, las=1)
@@ -152,12 +138,22 @@ lines(pdat$lwr~pdat$year, col = "pink", lwd=2, lty=2)
 lines(pdat$upr~pdat$year, col = "pink", lwd=2, lty=2)
 }
 
-treg=summary(tp3)$coefficients
-regco=kable(treg, digits=2,
+treg=as.data.frame(summary(tp2)$coefficients)
+
+
+sigstar=ifelse (treg[,4]<0.5, "*", "") 
+ treg[,4]=formatC(treg[,4], format = "e", digits = 1)
+ treg[,4]=paste(treg[,4],sigstar)
+
+
+
+
+
+regco=kable(treg, digits=5,
             #format="html", table.attr = "style='width:60%;'",
    caption="TP~year")
 tsave=footnote(kable_classic(regco),
-         general = paste("adj. R squared=", round((summary(tp3)$adj.r.squared),2)),
+         general = paste("adj. R squared=", round((summary(tp2)$adj.r.squared),2)),
          footnote_as_chunk = TRUE,
          general_title = "")
 tsave
@@ -171,7 +167,7 @@ tsave
 
 ```{r}
 reglist=list()
-coll=vector()
+ regnolist=list()
 #tiff('baseR_figure.tiff', width =85, 
 #     height = 180, pointsize = 12,
 #     units = 'mm', res = 300)
@@ -185,15 +181,16 @@ coll=vector()
 par(mfrow=c(3,1), mar=c(0.5,3,1,1), oma=c(4,3,0,0),
     cex.axis=1.2, cex.lab=1.75, cex.main=1.2, cex.sub=1)
 for (i in 1:length(stvec)) {
+
   pdat=spydat[spydat$Station_Acronym==stvec[i],]
-  dat=ts(spydat$metric[spydat$Station_Acronym==site[i]], start=spydat$year[1], 
+  dat=ts(spydat$TP[spydat$Station_Acronym==site[i]], start=spydat$year[1], 
          end=spydat$year[length(spydat$year)])
   tt=1:length(dat)
   mss=which(!complete.cases(pdat))
   if (length(mss)>0) pdat=pdat[-mss,]
   
   #b=breakpoints(dat~1)
-  b=breakpoints(metric ~ year+TP, data=pdat)
+  b=breakpoints(TP ~ year, data=pdat)
   #b=breakpoints(metric ~ year, data=pdat)
   print(b)
 cat('\n\n<!-- -->\n\n')
@@ -210,32 +207,31 @@ cat('\n\n<!-- -->\n\n')
   
   
   time=as.factor(fac.ri)
-   fm.riT2 <- lm(metric ~ time:year+time+TP, data=pdat, weights=weights)
-  fm.riT <- lm(metric ~ time:year+TP, data=pdat, weights=weights)
-  fm.ri <- lm(metric ~ time+TP+year, data=pdat, weights=weights)
-  fm.riN <- lm(metric ~ TP+year, data=pdat,weights=weights)
-  print(AIC(fm.ri, fm.riN,fm.riT, fm.riT2))
-  summary(fm.ri)
- 
+  fm.riT2 <- lm(TP ~ time:year+time, data=pdat, weights=weights)
+  fm.riT <- lm(TP ~ time:year, data=pdat, weights=weights)
+  fm.ri <- lm(TP ~ time+year, data=pdat, weights=weights)
+  fm.riN <- lm(TP ~ year, data=pdat,weights=weights)
+  sc=(AIC(fm.ri, fm.riN,fm.riT, fm.riT2))
+  print(sc)
+  bm=which.min(sc[,2])
+  fm.ri=fm.ri
   } else {
-    fm.ri <- lm(metric ~ TP+year, data=pdat,weights=weights)
+    fm.ri <- lm(TP ~ year, data=pdat,weights=weights)
   }
   
   #table of output
-  
+  fm.no<- lm(TP ~ year, data=pdat,weights=weights)
 reglist[[i]]=fm.ri  
-
-coll[i]=cor(pdat$TP, pdat$year)
-  
+  regnolist[[i]]=fm.no
 #summary(fm.ri)$adj.r.squared
 
 
   amscale=mscale
-  amscale=c(0, amscale[2])
-  if (i==3) amscale[2]=mscale[2]/3
-  plot(metric~year, data=pdat, type="b",xaxt="n",pch=16,col="grey",
+  amscale=c(0, 0.1)
+  if (i==3) amscale[2]=amscale[2]/2
+  plot(TP~year, data=pdat, type="b",xaxt="n",pch=16,col="grey",
       # ann=FALSE, 
-       xlim=xyear, ylim=c(0,2),las=2,yaxp=c(0,round(2,2),4))
+       xlim=xyear, ylim=amscale,las=2,yaxp=c(0,round(0.1,2),4))
   
   if ( i==3)axis(side=1, las=1)
   legend("topright",stlabel[i], bty="n",
@@ -251,12 +247,19 @@ coll[i]=cor(pdat$TP, pdat$year)
   
   #draw breakpoints & confidence intervals 
  if (sum(!is.na(b$breakpoints))>0){
-  ci=confint(b)$confint
-  ci=ci[summary(fm.ri)$coefficients[2:(1+length(b$breakpoints)),4]<0.05,]
-  hgt=1.85
+  cis=confint(b)$confint
+  cll=cis[summary(fm.ri)$coefficients[2:(1+length(b$breakpoints)),4]<1.,]
+   ci=cis[summary(fm.ri)$coefficients[2:(1+length(b$breakpoints)),4]<0.05,]
+   if (length(nrow(cll))!= 0) {
+  if (nrow(cll)== 1) abline(v=pdat$year[cll[2]], lty=2, col="light grey")
+   if (nrow(cll)>1) abline(v=pdat$year[cll[,2]], lty=2, col="light grey")
+   }
+  hgt=amscale[2]-0.005
+  if(i==3) hgt=hgt/2
+  
 #  if (i==3) hgt=4
   tm=nrow(ci)
-   if (length(tm)==0) {
+  if (length(tm)==0) {
       tm=1 
     } else if (tm==0)  {
       tm=1
@@ -269,7 +272,8 @@ coll[i]=cor(pdat$TP, pdat$year)
     xx=pdat$year[ci[3]]
     yx=yn
     segments(xn[s], yn[s], xx[s], yx[s], col="blue", lwd=2, lend="square")
-    text(pdat$year[ci[2]]-2.5,2, pdat$year[ci[2]])
+    text(pdat$year[ci[2]]-2.5,y=amscale[2]-.001, pdat$year[ci[2]])
+   
     abline(v=pdat$year[ci[2]], lty=2, col="blue")
   } else {
     yn=rep(hgt,tm)
@@ -280,21 +284,23 @@ coll[i]=cor(pdat$TP, pdat$year)
   xx=pdat$year[ci[,3]]
   yx=yn
   segments(xn[s], yn[s], xx[s], yx[s], col="blue", lwd=2, lend="square")
-  abline(v=pdat$year[ci[,2]], lty=2, col="blue")
-  text(pdat$year[ci[,2]]-2.5,y=2, pdat$year[ci[,2]])
+
+ 
+     abline(v=pdat$year[ci[,2]], lty=2, col="blue")
+  text(pdat$year[ci[,2]]-2.5,y=amscale[2]-.001, pdat$year[ci[,2]])
   }
 
  }
   
-  mtext(mlab, side = 2, line = 0, outer = TRUE, at = NA,
+  mtext(mlab, side = 2, line = +1, outer = TRUE, at = NA,
         adj = NA, padj = NA, cex = 1.4, col = NA, font = NA)
   mtext("year", side = 1, line = +2, outer = TRUE, at = NA,
         adj = NA, padj = NA, cex = 1.4, col = NA, font = NA)
   
 
 }
-legend("top", c("data", "model", "breakpoint",
-                  "breakpoint CI"),
+legend("topleft", c("data", "model", "breakpoint",
+                  "breakpoint CI"), ncol=2,
        lty=c(1,1,2,1), col=c("grey", "red","blue", "blue"), 
        pch=c(16,NA,NA,NA),
        bty="n", cex=1.2)
@@ -306,74 +312,108 @@ legend("top", c("data", "model", "breakpoint",
 
 ```{r}
 i=1
-regout=as.data.frame(summary(reglist[[i]])$coefficients) 
-sigstar=ifelse (regout[,4]<0.05, "*", "") 
-regout[,4]=formatC(regout[,4], format = "e", digits = 1)
- regout[,4]=paste(regout[,4],sigstar)
+regs=as.data.frame(summary(reglist[[i]])$coefficients) 
+sigstar=ifelse (regs[,4]<0.05, "*", "") 
+ regs[,4]=formatC(regs[,4], format = "e", digits = 1)
+ regs[,4]=paste(regs[,4],sigstar)
+
+
+
+
  rsq=round((summary(reglist[[i]])$adj.r.squared),4)
-regco=kable((regout), digits=2,
+ regn=as.data.frame(summary(regnolist[[i]])$coefficients)
+ sigstar=ifelse (regn[,4]<0.5, "*", "") 
+ regn[,4]=formatC(regn[,4], format = "e", digits = 1)
+ regn[,4]=paste(regn[,4],sigstar)
+ 
+ regout=list(regs,regn)
+regco=kable((regout), digits=4,
             #format="html", table.attr = "style='width:60%;'",
-   caption=paste(mmetric,"Site", stvec[i]))
+   caption=paste("TP","Site", stvec[i]))
+sics=AIC(reglist[[i]],regnolist[[i]])
+model=as.character(c(reglist[[i]]$call, regnolist[[i]]$call))
+tabtext=data.frame(model=model,
+  AIC=sics[,2], Rsq=c(rsq,summary(regnolist[[i]])$adj.r.squared))
+
 tsave=footnote(kable_classic(regco),
-         general = paste("adj. R squared=",rsq),
-         footnote_as_chunk = TRUE,
+        # general = paste("adj. R squared=",rsq),
+        general=c(tabtext[1,],tabtext[2,]),
+         footnote_as_chunk = FALSE,
          general_title = "")
 
 #fname=paste0(mmetric,"Site", stvec[i],".png")
 tsave
-
-car::vif(reglist[[i]])
 
 ```
 
 ```{r}
 i=2
 
-regout=summary(reglist[[i]])$coefficients 
+regs=as.data.frame(summary(reglist[[i]])$coefficients) 
+sigstar=ifelse (regs[,4]<0.05, "*", "") 
+ regs[,4]=formatC(regs[,4], format = "e", digits = 1)
+ regs[,4]=paste(regs[,4],sigstar)
 
-regout=as.data.frame(summary(reglist[[i]])$coefficients) 
-sigstar=ifelse (regout[,4]<0.05, "*", "") 
-regout[,4]=formatC(regout[,4], format = "e", digits = 1)
- regout[,4]=paste(regout[,4],sigstar)
 
 
 
  rsq=round((summary(reglist[[i]])$adj.r.squared),4)
-regco=kable((regout), digits=2,
+ regn=as.data.frame(summary(regnolist[[i]])$coefficients)
+ sigstar=ifelse (regn[,4]<0.5, "*", "") 
+ regn[,4]=formatC(regn[,4], format = "e", digits = 1)
+ regn[,4]=paste(regn[,4],sigstar)
+ regout=list(regs,regn)
+regco=kable((regout), digits=4,
             #format="html", table.attr = "style='width:60%;'",
-   caption=paste(mmetric,"Site", stvec[i]))
+   caption=paste("TP","Site", stvec[i]))
+sics=AIC(reglist[[i]],regnolist[[i]])
+model=as.character(c(reglist[[i]]$call, regnolist[[i]]$call))
+tabtext=data.frame(model=model,
+  AIC=sics[,2], Rsq=c(rsq,summary(regnolist[[i]])$adj.r.squared))
+
 tsave=footnote(kable_classic(regco),
-         general = paste("adj. R squared=",rsq),
-         footnote_as_chunk = TRUE,
+        # general = paste("adj. R squared=",rsq),
+        general=c(tabtext[1,],tabtext[2,]),
+         footnote_as_chunk = FALSE,
          general_title = "")
 
 #fname=paste0(mmetric,"Site", stvec[i],".png")
 tsave
-
-#save_kable(tsave,file=fname, density=600, zoom = 1.25, bs_theme = "flatly")
-
 
 ```
 
 ```{r}
 i=3
-regout=as.data.frame(summary(reglist[[i]])$coefficients) 
-sigstar=ifelse (regout[,4]<0.05, "*", "") 
-regout[,4]=formatC(regout[,4], format = "e", digits = 1)
- regout[,4]=paste(regout[,4],sigstar)
+regs=as.data.frame(summary(reglist[[i]])$coefficients) 
+sigstar=ifelse (regs[,4]<0.05, "*", "") 
+ regs[,4]=formatC(regs[,4], format = "e", digits = 1)
+ regs[,4]=paste(regs[,4],sigstar)
+
+
+
+
  rsq=round((summary(reglist[[i]])$adj.r.squared),4)
-regco=kable((regout), digits=2,
+ regn=as.data.frame(summary(regnolist[[i]])$coefficients)
+ sigstar=ifelse (regn[,4]<0.5, "*", "") 
+ regn[,4]=formatC(regn[,4], format = "e", digits = 1)
+ regn[,4]=paste(regn[,4],sigstar)
+ regout=list(regs,regn)
+regco=kable((regout), digits=4,
             #format="html", table.attr = "style='width:60%;'",
-   caption=paste(mmetric,"Site", stvec[i]))
+   caption=paste("TP","Site", stvec[i]))
+sics=AIC(reglist[[i]],regnolist[[i]])
+model=as.character(c(reglist[[i]]$call, regnolist[[i]]$call))
+tabtext=data.frame(model=model,
+  AIC=sics[,2], Rsq=c(rsq,summary(regnolist[[i]])$adj.r.squared))
+
 tsave=footnote(kable_classic(regco),
-         general = paste("adj. R squared=",rsq),
-         footnote_as_chunk = TRUE,
+        # general = paste("adj. R squared=",rsq),
+        general=c(tabtext[1,],tabtext[2,]),
+         footnote_as_chunk = FALSE,
          general_title = "")
 
 #fname=paste0(mmetric,"Site", stvec[i],".png")
 tsave
-#cat('\n\n<!-- -->\n\n')
-
 #save_kable(tsave,file=fname, density=600, zoom = 1.25, bs_theme = "flatly")
 
 

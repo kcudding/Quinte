@@ -1,6 +1,4 @@
 ---
-title: "Untitled"
-author: "Kim Cuddington"
 date: "11/02/2022"
 output: html_document
 ---
@@ -87,16 +85,13 @@ lylab=c("", ly, "")
 
 
 #TP model
-tp1=(lm(TP~year:Station_Acronym, weights=weights, data=spydat))
-tp2=(lm(TP~year+Station_Acronym, weights=weights, data=spydat))
-tp3=(lm(TP~year:Station_Acronym+Station_Acronym, weights=weights, data=spydat))
+tp1=(lm(metric~TP+Station_Acronym, weights=weights, data=spydat))
+tp2=(lm(metric~TP:Station_Acronym, weights=weights, data=spydat))
+tp3=(lm(metric~TP:Station_Acronym+Station_Acronym, weights=weights, data=spydat))
 
 
 #metric model
-tp1=(lm(metric~year:Station_Acronym, weights=weights, data=spydat))
-tp2=(lm(metric~year+Station_Acronym, weights=weights, data=spydat))
-tp3=(lm(metric~year:Station_Acronym+Station_Acronym, weights=weights, data=spydat))
-#metric model
+
 tp4=(lm(metric~TP+year:Station_Acronym+Station_Acronym, weights=weights, data=spydat))
 tp5=(lm(metric~TP+year+Station_Acronym, weights=weights, data=spydat))
 tp6=(lm(metric~TP:year:Station_Acronym+Station_Acronym, weights=weights, data=spydat))
@@ -108,7 +103,12 @@ tp11=(lm(metric~TP:Station_Acronym+year, weights=weights, data=spydat))
 
 
 
-cop=AIC(tp1,tp2,tp3, tp4,tp5,tp6, tp7, tp8, tp9, tp10, tp11)
+cop=AIC(tp1,tp2,tp3)
+print(cop)
+print(c(summary(tp1)$adj.r.squared,summary(tp2)$adj.r.squared,summary(tp3)$adj.r.squared))
+
+cop2=AIC(tp4,tp5,tp6, tp7, tp8, tp9, tp10, tp11)
+print(cop2)
 
 m1=which.min(cop$AIC)
 mod=row.names(cop)[m1]
@@ -128,16 +128,17 @@ for (i in 1:length(stvec)) {
   
   mscale=c(min(pdat$metric, na.rm=TRUE)-sscal,
            max(pdat$metric, na.rm=T)+sscal)
+  mscale=c(0,45)
   amscale=mscale
   mss=which(!complete.cases(pdat))
   if (length(mss)>0) pdat=pdat[-mss,]
   if (i==3) {
  
-  amscale[2]=mscale[2]/3
+  amscale[2]=mscale[2]/2
   }
 ymax=round(max(pdat$metric, na.rm=T),2)
 plot(metric~year, data=pdat, type="b",xaxt="n",pch=16,col="grey",
-     ann=FALSE, xlim=xyear, ylim=c(0,ymax+0.01), las=2, yaxp=c(0,ymax,3))
+     ann=FALSE, xlim=xyear, ylim=amscale, las=2, yaxp=c(0,ymax,3))
 
 if ( i==3)axis(side=1, las=1)
 legend("bottomleft",stlabel[i], bty="n",
@@ -191,7 +192,7 @@ for (i in 1:length(stvec)) {
   b=breakpoints(metric ~ year+TP, data=pdat)
   #b=breakpoints(metric ~ year, data=pdat)
   print(b)
-
+cat('\n\n<!-- -->\n\n')
   if (sum(!is.na(b$breakpoints))>0){
   
   # fit segmented model
@@ -205,13 +206,18 @@ for (i in 1:length(stvec)) {
   
   
   time=as.factor(fac.ri)
+  fm.riT2 <- lm(metric ~ time:year+TP+time, data=pdat, weights=weights)
   fm.riT <- lm(metric ~ time:year+TP, data=pdat, weights=weights)
   fm.ri <- lm(metric ~ time+TP+year, data=pdat, weights=weights)
   fm.riN <- lm(metric ~ TP+year, data=pdat,weights=weights)
-  AIC(fm.ri, fm.riN,fm.riT)
+  pAIC=(AIC(fm.ri, fm.riN,fm.riT, fm.riT2))
+  print(pAIC)
+
   summary(fm.ri)
   } else {
     fm.ri <- lm(metric ~ TP+year, data=pdat,weights=weights)
+    fm.riTP <- lm(metric ~ TP, data=pdat,weights=weights)
+    fm.riyr <- lm(metric ~ year, data=pdat,weights=weights)
   }
   
   #table of output
@@ -223,9 +229,9 @@ summary(fm.ri)$adj.r.squared
 
   amscale=mscale
   amscale=c(0, amscale[2])
-  if (i==3) amscale[2]=mscale[2]/3
+  if (i==3) amscale[2]=mscale[2]/2
   plot(metric~year, data=pdat, type="b",xaxt="n",pch=16,col="grey",
-       ann=FALSE, xlim=xyear, ylim=c(0,45),las=2,yaxp=c(0,round(40,2),4))
+       ann=FALSE, xlim=xyear, ylim=amscale,las=2,yaxp=c(0,amscale[2],4))
   
   if ( i==3)axis(side=1, las=1)
   legend("topright",stlabel[i], bty="n",
@@ -241,12 +247,21 @@ summary(fm.ri)$adj.r.squared
   
   #draw breakpoints & confidence intervals 
  if (sum(!is.na(b$breakpoints))>0){
-  ci=confint(b)$confint
-  ci=ci[summary(fm.ri)$coefficients[2:(1+length(b$breakpoints)),4]<0.05,]
-  hgt=40
+  cis=confint(b)$confint
+  cll=cis[summary(fm.ri)$coefficients[2:(1+length(b$breakpoints)),4]<1.,]
+   ci=cis[summary(fm.ri)$coefficients[2:(1+length(b$breakpoints)),4]<0.05,]
+   if (length(nrow(cll))!= 0) {
+  if (nrow(cll)== 1) abline(v=pdat$year[cll[2]], lty=2, col="light grey")
+   if (nrow(cll)>1) abline(v=pdat$year[cll[,2]], lty=2, col="light grey")
+   }
+  hgt=amscale[2]-(8/i)
 #  if (i==3) hgt=4
   tm=nrow(ci)
-  if (length(tm)==0) tm=1
+  if (length(tm)==0) {
+      tm=1 
+    } else if (tm==0)  {
+      tm=1
+    }
   yn=rep(hgt,tm)
   
   if (tm==1) {
@@ -255,7 +270,7 @@ summary(fm.ri)$adj.r.squared
     xx=pdat$year[ci[3]]
     yx=yn
     segments(xn[s], yn[s], xx[s], yx[s], col="blue", lwd=2, lend="square")
-    text(pdat$year[ci[2]]-2.5,44, pdat$year[ci[2]])
+    text(pdat$year[ci[2]]-2,amscale[2]-.5, pdat$year[ci[2]])
     abline(v=pdat$year[ci[2]], lty=2, col="blue")
   } else {
     yn=rep(hgt,tm)
@@ -267,12 +282,12 @@ summary(fm.ri)$adj.r.squared
   yx=yn
   segments(xn[s], yn[s], xx[s], yx[s], col="blue", lwd=2, lend="square")
   abline(v=pdat$year[ci[,2]], lty=2, col="blue")
-  text(pdat$year[ci[,2]]-2.5,44, pdat$year[ci[,2]])
+  text(pdat$year[ci[,2]]-2,amscale[2]-.5, pdat$year[ci[,2]])
   }
 
  }
   
-  mtext(mlab, side = 2, line = 0, outer = TRUE, at = NA,
+  mtext(mlab, side = 2, line = +1, outer = TRUE, at = NA,
         adj = NA, padj = NA, cex = 1.4, col = NA, font = NA)
   mtext("year", side = 1, line = +2, outer = TRUE, at = NA,
         adj = NA, padj = NA, cex = 1.4, col = NA, font = NA)
@@ -292,13 +307,16 @@ legend("right", c("data", "model", "breakpoint",
 
 ```{r}
 i=1
-regout=summary(reglist[[i]])$coefficients 
+regs=as.data.frame(summary(reglist[[i]])$coefficients) 
+sigstar=ifelse (regs[,4]<0.05, "*", "") 
+ regs[,4]=formatC(regs[,4], format = "e", digits = 1)
+ regs[,4]=paste(regs[,4],sigstar)
 
-regco=kable((regout), digits=2,
+regco=kable((regs), digits=4,
             #format="html", table.attr = "style='width:60%;'",
    caption=paste(mmetric,"Site", stvec[i]))
 tsave=footnote(kable_classic(regco),
-         general = paste("adj. R squared=", round((summary(fm.ri)$adj.r.squared),2)),
+         general = paste("adj. R squared=", round((summary(reglist[[i]])$adj.r.squared),4)),
          footnote_as_chunk = TRUE,
          general_title = "")
 
@@ -313,13 +331,16 @@ tsave
 
 ```{r}
 i=2
-regout=summary(reglist[[i]])$coefficients 
+regs=as.data.frame(summary(reglist[[i]])$coefficients) 
+sigstar=ifelse (regs[,4]<0.05, "*", "") 
+ regs[,4]=formatC(regs[,4], format = "e", digits = 1)
+ regs[,4]=paste(regs[,4],sigstar)
 
-regco=kable((regout), digits=2,
+regco=kable((regs), digits=4,
             #format="html", table.attr = "style='width:60%;'",
    caption=paste(mmetric,"Site", stvec[i]))
 tsave=footnote(kable_classic(regco),
-         general = paste("adj. R squared=", round((summary(fm.ri)$adj.r.squared),2)),
+         general = paste("adj. R squared=", round((summary(reglist[[i]])$adj.r.squared),4)),
          footnote_as_chunk = TRUE,
          general_title = "")
 
@@ -334,13 +355,16 @@ tsave
 
 ```{r}
 i=3
-regout=summary(reglist[[i]])$coefficients 
+regs=as.data.frame(summary(reglist[[i]])$coefficients) 
+sigstar=ifelse (regs[,4]<0.05, "*", "") 
+ regs[,4]=formatC(regs[,4], format = "e", digits = 1)
+ regs[,4]=paste(regs[,4],sigstar)
 
-regco=kable((regout), digits=2,
+regco=kable((regs), digits=4,
             #format="html", table.attr = "style='width:60%;'",
    caption=paste(mmetric,"Site", stvec[i]))
 tsave=footnote(kable_classic(regco),
-         general = paste("adj. R squared=", round((summary(fm.ri)$adj.r.squared),2)),
+         general = paste("adj. R squared=", round((summary(reglist[[i]])$adj.r.squared),4)),
          footnote_as_chunk = TRUE,
          general_title = "")
 

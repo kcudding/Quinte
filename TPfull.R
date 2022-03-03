@@ -122,7 +122,7 @@ fc<- gam(as.formula(fcvec[ind]) ,
          #correlation=corAR1(form = ~ year|Station_Acronym),
          
          method = "REML")
-
+cpdat=pdat
 summary(fc)
 AIC(fc)
 concurvity(fc, full=TRUE)
@@ -306,3 +306,4 @@ for (j in seq_along(dseq)) {
   
 }
 dev.off()
+cspydat=spydat

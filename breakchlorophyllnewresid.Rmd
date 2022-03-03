@@ -1,9 +1,6 @@
 ---
 date: "25/02/2022"
-output:
-  pdf_document: default
-  html_document: default
-  word_document: default
+output: html_document
 ---
 
 ```{r setup, include=FALSE}
@@ -14,7 +11,7 @@ library(rmarkdown)
 library(kableExtra)
 ```
 
-### BREAKPOINT
+### BREAKPOINT On residuals
 ```{r}
 rm(list=ls())
 #read in data supplied by DFO, rename and aggregate into annuual means
@@ -29,9 +26,9 @@ colnames(my_data)[colnames(my_data)=="chl"] <- "Chla"
 
 colnames(my_data)[colnames(my_data)=="TotalPhyto"]<-"Phyto_BM"
 
-mmetric="epar" #select which metric to analyze
-mlab=expression(Light~attenuation~(m^-1)) 
-#mlab=expression(Chlorophyll~a~(mu~g~L^-1))
+mmetric="Chla" #select which metric to analyze
+#mlab=expression(Light~attenuation~(m^-1)) 
+mlab=expression(Chlorophyll~a~(mu~g~L^-1))
 #mlab=expression(Total~phosophorus~(mg~L^-1))
 
 
@@ -77,10 +74,13 @@ spydat$Station_Acronym=as.factor(spydat$Station_Acronym)
 
 #rm(list=ls())
 library(strucchange)
+```
+We completed a breakpoint analysis on total phosphorus, light attenuation and chlorphyll a. Total phosophorus was a strong predictor of both light attentuation and chlorophyll a, and moreover, has a strong relationship to year. Therefore, to avoid an undo influence of colinearity or concurvity, we provide analyses both on the original data, and on the residuals from a fitted relationship to phosphorus.
 
 
+### Residual breakpoint analysis for chlorophyll a
 
-
+```{r}
 site=stvec
 bxlab=c("","", "Breaks")
 bylab=c("","BIC", "")
@@ -89,89 +89,105 @@ lylab=c("", ly, "")
 
 
 #TP model
-tp1=(lm(metric~TP+Station_Acronym, weights=weights, data=spydat))
-tp2=(lm(metric~TP:Station_Acronym, weights=weights, data=spydat))
+tp1=(lm(metric~TP:Station_Acronym, weights=weights, data=spydat))
+tp2=(lm(metric~TP+Station_Acronym, weights=weights, data=spydat))
 tp3=(lm(metric~TP:Station_Acronym+Station_Acronym, weights=weights, data=spydat))
-
-
-#metric model
-#tp1=(lm(metric~year+Station_Acronym, weights=weights, data=spydat))
-#tp2=(lm(metric~year:Station_Acronym, weights=weights, data=spydat))
-#tp3=(lm(metric~year:Station_Acronym+Station_Acronym, weights=weights, data=spydat))
-#metric model
-tp4=(lm(metric~TP+year:Station_Acronym+Station_Acronym, weights=weights, data=spydat))
-tp5=(lm(metric~TP+year+Station_Acronym, weights=weights, data=spydat))
-tp6=(lm(metric~TP:year:Station_Acronym+Station_Acronym, weights=weights, data=spydat))
-tp7=(lm(metric~TP:Station_Acronym+year+Station_Acronym, weights=weights, data=spydat))
-tp8=(lm(metric~TP+year:Station_Acronym, weights=weights, data=spydat))
-tp9=(lm(metric~TP+year+Station_Acronym, weights=weights, data=spydat))
-tp10=(lm(metric~TP:year:Station_Acronym, weights=weights, data=spydat))
-tp11=(lm(metric~TP:Station_Acronym+year, weights=weights, data=spydat))
-
-
-
 cop=AIC(tp1,tp2,tp3)
-print(cop)
-
-print(c(summary(tp1)$adj.r.squared,summary(tp2)$adj.r.squared,summary(tp3)$adj.r.squared))
+cop
 m1=which.min(cop$AIC)
 mod=row.names(cop)[m1]
 bestmod=as.name(mod)
-#summary(eval(bestmod))
+```
 
+```{r}
 
-mpred=as.data.frame(predict(tp3, spydat, interval="confidence"))
-
-spydat=cbind(spydat, mpred)
-
-#spydat$tres=spydat$TP-spydat$tmodel
-par(mfrow=c(3,1), mar=c(1,4,0,3), oma=c(5,5,2,2),
-    cex.axis=1, cex.lab=1.75, cex.main=1.2, cex.sub=1)
+par(mfrow=c(3,1), mar=c(0.5,3,1,1), oma=c(4,3,0,0),
+    cex.axis=1.2, cex.lab=1.75, cex.main=1.2, cex.sub=1)
 for (i in 1:length(stvec)) {
   pdat=spydat[spydat$Station_Acronym==stvec[i],]
+  moddat=as.data.frame(predict(tp2, pdat, interval="confidence"))
+mscale=c(0,45)
+   amscale=mscale
   
-  mscale=c(min(pdat$metric, na.rm=TRUE)-sscal,
-           max(pdat$metric, na.rm=T)+sscal)
-  amscale=mscale
-  mss=which(!complete.cases(pdat))
-  if (length(mss)>0) pdat=pdat[-mss,]
-  if (i==3) {
- 
-  amscale[2]=mscale[2]/3
-  }
-ymax=round(max(pdat$metric, na.rm=T),2)
-plot(metric~year, data=pdat, type="b",xaxt="n",pch=16,col="grey",
-     ann=FALSE, xlim=xyear, ylim=c(0,ymax+0.01), las=2, yaxp=c(0,ymax,3))
 
+  if (i==3) amscale=mscale/2
+  plot(metric~TP, data=pdat,xaxt="n",pch=16,col="black",las=2,
+      # ann=FALSE, 
+       #xlim=xyear, 
+      ylim=amscale, bty="l")
+      
+      #yaxp=c(0,round(2,2),4)
+     # )
+  lines(moddat$fit~pdat$TP, col="pink", lwd=2)
+  lines(moddat$upr~pdat$TP, col="pink", lty=2, lwd=2)
+  lines(moddat$lwr~pdat$TP, col="pink", lty=2, lwd=2)
+  
 if ( i==3)axis(side=1, las=1)
-legend("bottomleft",stlabel[i], bty="n",
-       cex=1.5)
-
-lines(pdat$fit~pdat$year, col = 2, lwd=2)
-lines(pdat$lwr~pdat$year, col = "pink", lwd=2, lty=2)
-lines(pdat$upr~pdat$year, col = "pink", lwd=2, lty=2)
+  legend("topleft",stlabel[i], bty="n",
+         cex=1.5)
 }
-
-treg=summary(tp3)$coefficients
-regco=kable(treg, digits=2,
+ mtext(mlab, side = 2, line = 0, outer = TRUE, at = NA,
+        adj = NA, padj = NA, cex = 1.4, col = NA, font = NA)
+  mtext(expression(Total~phosophorus~(mg~L^-1)), side = 1, line = +3, outer = TRUE, at = NA,
+        adj = NA, padj = NA, cex = 1.4, col = NA, font = NA)
+  
+  
+  treg=as.data.frame(summary(tp3)$coefficients)
+  
+ 
+sigstar=ifelse (treg[,4]<0.5, "*", "") 
+treg[,4]=formatC(treg[,4], format = "e", digits = 1)
+ treg[,4]=paste(treg[,4],sigstar)
+ treg[,1:3]=round(treg[,1:3],3)
+  
+ treg[,4]=formatC(treg[,4], format = "e", digits = 1)
+ treg[,1:3]=round(treg[,1:3],3)
+regco=kable(treg, digits=4,
             #format="html", table.attr = "style='width:60%;'",
-   caption="TP~year")
+   caption="Chla~TP")
 tsave=footnote(kable_classic(regco),
          general = paste("adj. R squared=", round((summary(tp3)$adj.r.squared),2)),
          footnote_as_chunk = TRUE,
          general_title = "")
 tsave
-#fname=paste0(mmetric,"Site", stvec[i],".png")
-#print(tsave)
-#cat('\n\n<!-- -->\n\n')
-
-
 
 ```
 
+In this case the best fit linear models included site-specific slopes. There was no difference in AIC (`r c(cop[1,2], cop[3,2])`) or R2 (`r c(summary(tp1)$adj.r.squared,summary(tp2)$adj.r.squared)`) between a site specific linear models of chlorophyll a vs total phosophorus with intercept given by site, and a model with slope and intercept specific to each site. both models performed better than a model with a global slope and individual intercepts  (AIC=`r cop[2,2]`. R^2=`r  summary(tp2)$adj.r.squared`). We therefore used the site-specific slope model (fig & table) to calculate residuals.
+
+We used the strucchange function to suggest the position and number of breaks in the timeseries, and then fit the corresponding model with data weighted by observation number for the year.
+
+
+
+```{r}
+
+mpred=as.data.frame(predict(tp3, spydat, interval="confidence"))
+spydat=cbind(spydat, mpred)
+spydat$TPres=spydat$metric-spydat$fit
+
+#metric model
+tp4=(lm(TPres~year:Station_Acronym+Station_Acronym, weights=weights, data=spydat))
+tp5=(lm(TPres~year+Station_Acronym, weights=weights, data=spydat))
+tp6=(lm(TPres~year:Station_Acronym, weights=weights, data=spydat))
+tp7=(lm(TPres~TP:Station_Acronym+year+Station_Acronym, weights=weights, data=spydat))
+tp8=(lm(TPres~TP+year:Station_Acronym, weights=weights, data=spydat))
+
+
+
+
+copref=AIC(tp4,tp5,tp6, tp7, tp8)
+copref
+```
+
+There were no differences in models with site-specific slopes, vs a global slope (AIC=`r copref[3,2]`, $R^2$=`r summary(tp6)$adj.r.squared` vs AIC=`r copref[2,2]`, $R^2$=`r summary(tp5)$adj.r.squared` for a model with a global slope), and site specific intercepts as well as slope (AIC=`r copref[1,2]`, $R^2$=`r summary(tp4)$adj.r.squared`). 
+
+
+
+
+
+
 ```{r}
 reglist=list()
-coll=vector()
 #tiff('baseR_figure.tiff', width =85, 
 #     height = 180, pointsize = 12,
 #     units = 'mm', res = 300)
@@ -193,7 +209,7 @@ for (i in 1:length(stvec)) {
   if (length(mss)>0) pdat=pdat[-mss,]
   
   #b=breakpoints(dat~1)
-  b=breakpoints(metric ~ year+TP, data=pdat)
+  b=breakpoints(TPres ~ year, data=pdat)
   #b=breakpoints(metric ~ year, data=pdat)
   print(b)
 cat('\n\n<!-- -->\n\n')
@@ -210,32 +226,32 @@ cat('\n\n<!-- -->\n\n')
   
   
   time=as.factor(fac.ri)
-   fm.riT2 <- lm(metric ~ time:year+time+TP, data=pdat, weights=weights)
-  fm.riT <- lm(metric ~ time:year+TP, data=pdat, weights=weights)
-  fm.ri <- lm(metric ~ time+TP+year, data=pdat, weights=weights)
-  fm.riN <- lm(metric ~ TP+year, data=pdat,weights=weights)
-  print(AIC(fm.ri, fm.riN,fm.riT, fm.riT2))
+  fm.riT <- lm(TPres ~ time:year, data=pdat, weights=weights)
+  fm.ri <- lm(TPres ~ time+year, data=pdat, weights=weights)
+  fm.riN <- lm(TPres ~ year, data=pdat,weights=weights)
+   fm.riT2 <- lm(TPres ~ time:year+time, data=pdat, weights=weights)
+  coret=AIC(fm.ri, fm.riN,fm.riT, fm.riT2)
+  print(coret)
+  fm.ri=fm.riT
   summary(fm.ri)
- 
   } else {
-    fm.ri <- lm(metric ~ TP+year, data=pdat,weights=weights)
+    fm.ri <- lm(TPres ~ year, data=pdat,weights=weights)
   }
   
   #table of output
   
 reglist[[i]]=fm.ri  
-
-coll[i]=cor(pdat$TP, pdat$year)
   
 #summary(fm.ri)$adj.r.squared
 
-
+mscale=c(-10,30)
   amscale=mscale
-  amscale=c(0, amscale[2])
-  if (i==3) amscale[2]=mscale[2]/3
-  plot(metric~year, data=pdat, type="b",xaxt="n",pch=16,col="grey",
+ 
+  if (i==3) amscale[2]=mscale[2]/2
+  plot(TPres~year, data=pdat, type="b",xaxt="n",pch=16,col="grey",
       # ann=FALSE, 
-       xlim=xyear, ylim=c(0,2),las=2,yaxp=c(0,round(2,2),4))
+       xlim=xyear, ylim=amscale,las=2,bty="l")
+      #yaxp=c(0,round(2,2),4))
   
   if ( i==3)axis(side=1, las=1)
   legend("topright",stlabel[i], bty="n",
@@ -253,10 +269,11 @@ coll[i]=cor(pdat$TP, pdat$year)
  if (sum(!is.na(b$breakpoints))>0){
   ci=confint(b)$confint
   ci=ci[summary(fm.ri)$coefficients[2:(1+length(b$breakpoints)),4]<0.05,]
-  hgt=1.85
+  hgt=amscale[2]-0.1
 #  if (i==3) hgt=4
   tm=nrow(ci)
-   if (length(tm)==0) {
+   tm=nrow(ci)
+  if (length(tm)==0) {
       tm=1 
     } else if (tm==0)  {
       tm=1
@@ -269,7 +286,7 @@ coll[i]=cor(pdat$TP, pdat$year)
     xx=pdat$year[ci[3]]
     yx=yn
     segments(xn[s], yn[s], xx[s], yx[s], col="blue", lwd=2, lend="square")
-    text(pdat$year[ci[2]]-2.5,2, pdat$year[ci[2]])
+    text(pdat$year[ci[2]]-2.5,amscale[2], pdat$year[ci[2]])
     abline(v=pdat$year[ci[2]], lty=2, col="blue")
   } else {
     yn=rep(hgt,tm)
@@ -281,39 +298,44 @@ coll[i]=cor(pdat$TP, pdat$year)
   yx=yn
   segments(xn[s], yn[s], xx[s], yx[s], col="blue", lwd=2, lend="square")
   abline(v=pdat$year[ci[,2]], lty=2, col="blue")
-  text(pdat$year[ci[,2]]-2.5,y=2, pdat$year[ci[,2]])
+  text(pdat$year[ci[,2]]-2.5,y=amscale[2], pdat$year[ci[,2]])
   }
 
  }
   
-  mtext(mlab, side = 2, line = 0, outer = TRUE, at = NA,
+  mtext("Residual chlorophyll a", side = 2, line = 0, outer = TRUE, at = NA,
         adj = NA, padj = NA, cex = 1.4, col = NA, font = NA)
   mtext("year", side = 1, line = +2, outer = TRUE, at = NA,
         adj = NA, padj = NA, cex = 1.4, col = NA, font = NA)
   
 
 }
-legend("top", c("data", "model", "breakpoint",
+legend("bottom", c("data", "model", "breakpoint",
                   "breakpoint CI"),
        lty=c(1,1,2,1), col=c("grey", "red","blue", "blue"), 
        pch=c(16,NA,NA,NA),
-       bty="n", cex=1.2)
+       bty="n", cex=1.2, ncol=2)
 #dev.off()
 
 ##########END BREAKPOINT
 ```
 
 
+The best fit breakpoint model for Belleville and Hay Bay allowed for differences in both intercept and slope in each time segment. There were no candidate breakpoints for Conway. There was only one significant breakpoint for Belleville about 1984. Hay Bay data suggested two breakpoints: one sometime in the 80s and another in 1994.
+
+
 ```{r}
 i=1
 regout=as.data.frame(summary(reglist[[i]])$coefficients) 
-sigstar=ifelse (regout[,4]<0.05, "*", "") 
-regout[,4]=formatC(regout[,4], format = "e", digits = 1)
+sigstar=ifelse (regout[,4]<0.5, "*", "") 
+ regout[,4]=formatC(regout[,4], format = "e", digits = 1)
  regout[,4]=paste(regout[,4],sigstar)
- rsq=round((summary(reglist[[i]])$adj.r.squared),4)
+ regout[,1:3]=round(regout[,1:3],3)
+
+ rsq=round((summary(reglist[[i]])$adj.r.squared),2)
 regco=kable((regout), digits=2,
             #format="html", table.attr = "style='width:60%;'",
-   caption=paste(mmetric,"Site", stvec[i]))
+   caption=paste("residual chla","Site", stvec[i]))
 tsave=footnote(kable_classic(regco),
          general = paste("adj. R squared=",rsq),
          footnote_as_chunk = TRUE,
@@ -322,26 +344,21 @@ tsave=footnote(kable_classic(regco),
 #fname=paste0(mmetric,"Site", stvec[i],".png")
 tsave
 
-car::vif(reglist[[i]])
-
 ```
 
 ```{r}
 i=2
 
-regout=summary(reglist[[i]])$coefficients 
 
 regout=as.data.frame(summary(reglist[[i]])$coefficients) 
-sigstar=ifelse (regout[,4]<0.05, "*", "") 
-regout[,4]=formatC(regout[,4], format = "e", digits = 1)
+sigstar=ifelse (regout[,4]<0.5, "*", "") 
+ regout[,4]=formatC(regout[,4], format = "e", digits = 1)
  regout[,4]=paste(regout[,4],sigstar)
-
-
-
- rsq=round((summary(reglist[[i]])$adj.r.squared),4)
+ regout[,1:3]=round(regout[,1:3],3)
+ rsq=round((summary(reglist[[i]])$adj.r.squared),2)
 regco=kable((regout), digits=2,
             #format="html", table.attr = "style='width:60%;'",
-   caption=paste(mmetric,"Site", stvec[i]))
+   caption=paste("residual chla","Site", stvec[i]))
 tsave=footnote(kable_classic(regco),
          general = paste("adj. R squared=",rsq),
          footnote_as_chunk = TRUE,
@@ -358,13 +375,14 @@ tsave
 ```{r}
 i=3
 regout=as.data.frame(summary(reglist[[i]])$coefficients) 
-sigstar=ifelse (regout[,4]<0.05, "*", "") 
-regout[,4]=formatC(regout[,4], format = "e", digits = 1)
+sigstar=ifelse (regout[,4]<0.5, "*", "") 
+ regout[,4]=formatC(regout[,4], format = "e", digits = 1)
  regout[,4]=paste(regout[,4],sigstar)
- rsq=round((summary(reglist[[i]])$adj.r.squared),4)
+ regout[,1:3]=round(regout[,1:3],3)
+ rsq=round((summary(reglist[[i]])$adj.r.squared),2)
 regco=kable((regout), digits=2,
             #format="html", table.attr = "style='width:60%;'",
-   caption=paste(mmetric,"Site", stvec[i]))
+   caption=paste("residual chla","Site", stvec[i]))
 tsave=footnote(kable_classic(regco),
          general = paste("adj. R squared=",rsq),
          footnote_as_chunk = TRUE,
